@@ -385,7 +385,7 @@ const QuotationDetails = () => {
       // Check if the response is successful
       if (response.status === 201) {
         toast.success("Order created successfully");
-        window.reload()
+        window.location.reload()
         console.log("Order created successfully:", response.data.response);
         // Optionally, update the state or show a success message
         // Example: setOrderDetails(response.data);
@@ -1159,8 +1159,8 @@ const QuotationDetails = () => {
                         className="m-0 mt-1"
                         value={
                           productDates[item.productId]?.productSlot ||
-                          quotation?.slots[0]?.quoteTime
-                        } // Default to initial slot value
+                          quotation?.quoteTime
+                        } 
                         onChange={(e) =>
                           handleDateChange(
                             item.productId,
