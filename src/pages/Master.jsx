@@ -65,7 +65,7 @@ const Master = () => {
   };
 
   return (
-    <div className="container py-2 rounded" style={{ background: "#F4F4F4" }}>
+    <div className="px-2 py-2 rounded" style={{ background: "#F4F4F4" }}>
       <div className="d-flex gap-3 mb-4">
         <button
           className={`btn rounded-5 shadow-sm w-25 ${activeTab === "category" ? "btn-custom text-white" : "btn-outline-custom"}`}

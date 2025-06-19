@@ -1,149 +1,101 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Card, Table, Container, Modal, Form } from "react-bootstrap";
 import Pagination from "../../components/Pagination";
 import { FaEdit, FaTrashAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { ApiURL, ImageApiURL } from "../../api";
+import { MdVisibility } from "react-icons/md";
 
 const ProductManagement = () => {
   const navigate = useNavigate();
-  const [showModal, setShowModal] = useState(false);
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      productIcon: "https://via.placeholder.com/50",
-      productName: "Testing",
-      stock: 2,
-      pricing: 222,
-      seater: "N/A",
-      material: "N/A",
-      description: "Testing",
-    },
-    {
-      id: 2,
-      productIcon: "https://via.placeholder.com/50",
-      productName: "Test Product",
-      stock: 5,
-      pricing: 500,
-      seater: "N/A",
-      material: "Wood",
-      description: "A test product.",
-    },
-  ]);
-
-  const [newProduct, setNewProduct] = useState({
-    productName: "",
-    productIcon: "",
-    stock: "",
-    pricing: "",
-    seater: "",
-    material: "",
-    description: "",
-  });
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRows, setSelectedRows] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
 
-  // Handle text input changes (for product details)
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setNewProduct((prevProduct) => ({
-      ...prevProduct,
-      [name]: value,
-    }));
-  };
-
-  // Handle product icon file input
-  const handleIconChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setNewProduct((prevProduct) => ({
-        ...prevProduct,
-        productIcon: URL.createObjectURL(file), // Create URL for the uploaded image
-      }));
-    }
-  };
-
-  // Handle adding or updating a product
-  const handleAddProduct = () => {
-    if (
-      newProduct.productName &&
-      newProduct.productIcon &&
-      newProduct.stock &&
-      newProduct.pricing
-    ) {
-      if (isEditing) {
-        const updatedProducts = [...products];
-        updatedProducts[editingIndex] = {
-          ...newProduct,
-          id: products[editingIndex].id,
-        };
-        setProducts(updatedProducts);
-        setIsEditing(false);
-        setEditingIndex(null);
-      } else {
-        const newId = products.length
-          ? products[products.length - 1].id + 1
-          : 1;
-        setProducts([...products, { ...newProduct, id: newId }]);
+  // Fetch products from API
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get(
+        `${ApiURL}/product/getinventoryproducts`
+      );
+      if (response.status === 200) {
+        setProducts(response.data.ProductsData);
+        setFilteredProducts(response.data.ProductsData);
+        console.log("producty", response.data);
       }
-      setShowModal(false);
-      setNewProduct({
-        productName: "",
-        productIcon: "",
-        stock: "",
-        pricing: "",
-        seater: "",
-        material: "",
-        description: "",
-      });
-    } else {
-      setError("Please fill in all required fields.");
+    } catch (error) {
+      console.error("Error fetching products:", error);
     }
   };
 
-  // Handle editing a product
-  const handleEditProduct = (index) => {
-    setIsEditing(true);
-    setEditingIndex(index);
-    setNewProduct(products[index]);
-    setShowModal(true);
-  };
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  // Handle deleting a product
-  const handleDeleteProduct = (index) => {
-    const updatedProducts = products.filter((_, i) => i !== index);
-    setProducts(updatedProducts);
-  };
-
-  // Handle deleting selected products
-  const handleDeleteSelected = () => {
-    const updatedProducts = products.filter(
-      (_, index) => !selectedRows.includes(index)
+  useEffect(() => {
+    const filtered = products.filter((product) =>
+      product.ProductName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    setProducts(updatedProducts);
-    setSelectedRows([]);
-  };
+    setFilteredProducts(filtered);
+    setCurrentPage(1);
+  }, [searchQuery, products]);
 
-  // Handle checkbox selection
-  const handleSelectRow = (index) => {
-    const newSelectedRows = [...selectedRows];
-    if (newSelectedRows.includes(index)) {
-      newSelectedRows.splice(newSelectedRows.indexOf(index), 1);
-    } else {
-      newSelectedRows.push(index);
+  const handleDeleteProduct = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you wanna delete?");
+    if (!confirmDelete) return;
+    try {
+      await axios.delete(`${ApiURL}/product/deleteProducts/${id}`);
+      fetchProducts(); // Refresh data
+    } catch (error) {
+      console.error("Error deleting product:", error);
     }
-    setSelectedRows(newSelectedRows);
   };
 
-  // Handle Select All checkbox
-  const handleSelectAll = () => {
-    if (selectedRows.length === filteredProducts.length) {
-      setSelectedRows([]);
+  const handleEditProduct = (id) => {
+    navigate(`/edit-product/${id}`);
+  };
+
+  const handleSelectRow = (id) => {
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllRows = (checked) => {
+    const currentPageIds = currentItems.map((product) => product._id);
+    if (checked) {
+      // const newSelected = [...new Set([...selectedRows, ...currentPageIds])];
+      // Replace selectedRows with only current page IDs (like sub category page)
+      const newSelected = [...new Set([...currentPageIds])];
+      setSelectedRows(newSelected);
     } else {
-      setSelectedRows(products.map((_, index) => index));
+      const remaining = selectedRows.filter(
+        (id) => !currentPageIds.includes(id)
+      );
+      setSelectedRows(remaining);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const confirmDelete = window.confirm("Delete selected products?");
+    if (!confirmDelete) return;
+
+    try {
+      await Promise.all(
+        selectedRows.map((id) =>
+          axios.delete(`${ApiURL}/product/deleteProducts/${id}`)
+        )
+      );
+
+      fetchProducts();
+      setSelectedRows([]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete selected products");
     }
   };
 
@@ -152,13 +104,15 @@ const ProductManagement = () => {
     setSearchQuery(e.target.value);
   };
 
-  // Filter products based on search query
-  const filteredProducts = products.filter((product) =>
-    product.productName.toLowerCase().includes(searchQuery.toLowerCase())
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredProducts.slice(
+    indexOfFirstItem,
+    indexOfLastItem
   );
 
   return (
-    <Container style={{ background: "#F4F4F4", paddingBlock:"20px" }}>
+    <Container style={{ background: "#F4F4F4", paddingBlock: "20px" }}>
       <div className="d-flex justify-content-between mb-3">
         <div>
           <Form.Control
@@ -205,7 +159,7 @@ const ProductManagement = () => {
       <Card className="border-0 shadow-sm">
         <div
           className="table-responsive bg-white rounded-lg"
-          style={{ maxHeight: "65vh", overflowY: "auto" }}
+          style={{ maxHeight: "70vh", overflowY: "auto" }}
         >
           <Table
             className="table table-hover align-middle"
@@ -217,14 +171,19 @@ const ProductManagement = () => {
           >
             <thead
               className="text-white text-center"
-              style={{ backgroundColor: "#323D4F", fontSize:"12px" }}
+              style={{ backgroundColor: "#323D4F", fontSize: "12px" }}
             >
               <tr>
                 <th className="" style={{ width: "5%" }}>
                   <input
                     type="checkbox"
-                    checked={selectedRows.length === filteredProducts.length}
-                    onChange={handleSelectAll}
+                    onChange={(e) => handleSelectAllRows(e.target.checked)}
+                    checked={
+                      currentItems.length > 0 &&
+                      currentItems.every((item) =>
+                        selectedRows.includes(item._id)
+                      )
+                    }
                   />
                 </th>
                 <th className="text-start" style={{ width: "15%" }}>
@@ -245,33 +204,35 @@ const ProductManagement = () => {
                 <th className="text-start" style={{ width: "10%" }}>
                   Material
                 </th>
-                <th className="text-start" style={{ width: "10%" }}>
+                {/* <th className="text-start" style={{ width: "10%" }}>
                   Description
-                </th>
-                <th className="text-center" style={{ width: "10%" }}>
+                </th> */}
+                <th className="text-center" style={{ width: "15%" }}>
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((product, index) => (
-                <tr key={index} className="text-center hover-row">
+              {currentItems.map((product, index) => (
+                <tr key={product._id} className="text-center hover-row">
                   <td>
                     <input
                       type="checkbox"
-                      checked={selectedRows.includes(index)}
-                      onChange={() => handleSelectRow(index)}
+                      checked={selectedRows.includes(product._id)}
+                      onChange={() => handleSelectRow(product._id)}
                     />
                   </td>
                   <td>
                     <img
-                      src={product.productIcon}
-                      alt={product.productName}
+                      // src={`${ImageApiURL}product/${product.ProductIcon}`}
+                      src={`${ImageApiURL}/product/${product.ProductIcon}`}
+                      alt={product.ProductIcon}
                       style={{
                         width: "50px",
                         height: "50px",
                         objectFit: "cover",
                         borderRadius: "4px",
+                        fontSize: "12px",
                       }}
                     />
                   </td>
@@ -279,30 +240,41 @@ const ProductManagement = () => {
                     className="fw-semibold text-start"
                     style={{ fontSize: "12px" }}
                   >
-                    {product.productName}
+                    {product.ProductName}
                   </td>
                   <td className="text-start" style={{ fontSize: "12px" }}>
-                    {product.stock}
+                    {product.ProductStock ? product.ProductStock : "0"}
                   </td>
                   <td className="text-start" style={{ fontSize: "12px" }}>
-                    {product.pricing}
+                    {product.ProductPrice}
                   </td>
                   <td className="text-start" style={{ fontSize: "12px" }}>
-                    {product.seater}
+                    {product.seater ? product.seater : "N/A"}
                   </td>
                   <td className="text-start" style={{ fontSize: "12px" }}>
-                    {product.material}
+                    {product.Material ? product.Material : "N/A"}
                   </td>
-                  <td className="text-start" style={{ fontSize: "12px" }}>
-                    {product.description}
-                  </td>
-                  <td className="text-center">
+                  {/* <td className="text-start" style={{ fontSize: "12px" }}>
+                    {product.ProductDesc}
+                  </td> */}
+                  <td className="">
+                    <Button
+                      variant="outline-dark"
+                      size="sm"
+                      className="me-2 icon-btn"
+                      style={{ padding: "4px 8px", fontSize: "10px" }}
+                      onClick={() =>
+                        navigate(`/product-details/${product._id}`)
+                      }
+                    >
+                      <MdVisibility />
+                    </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       className="me-2 icon-btn"
                       style={{ padding: "4px 8px", fontSize: "10px" }}
-                      onClick={() => handleDeleteProduct(index)}
+                      onClick={() => handleDeleteProduct(product._id)}
                     >
                       <FaTrashAlt style={{ width: "12px", height: "12px" }} />
                     </Button>
@@ -311,20 +283,33 @@ const ProductManagement = () => {
                       size="sm"
                       className="icon-btn"
                       style={{ padding: "4px 8px", fontSize: "10px" }}
-                      onClick={() => handleEditProduct(index)}
+                      onClick={() => handleEditProduct(product._id)}
                     >
                       <FaEdit style={{ width: "12px", height: "12px" }} />
                     </Button>
                   </td>
                 </tr>
               ))}
+
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan="8" className="text-center">
+                    No Products found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </Table>
         </div>
       </Card>
 
       {/* Pagination Component */}
-      <Pagination totalItems={filteredProducts.length} />
+      <Pagination
+        totalItems={filteredProducts.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+      />
     </Container>
   );
 };

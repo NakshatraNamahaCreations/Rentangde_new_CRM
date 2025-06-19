@@ -68,7 +68,7 @@ const Banner = () => {
   const handleDeleteBanner = async (id) => {
     if (!window.confirm("Are you sure you want to delete this banner?")) return;
     try {
-      const res = await axios.post(`${ApiURL}/banner/deletebanner/${id}`);
+      const res = await axios.delete(`${ApiURL}/banner/deletebanner/${id}`);
       if (res.status === 200) {
         toast.success("Banner deleted successfully");
         fetchBanner();
@@ -81,19 +81,44 @@ const Banner = () => {
     }
   };
 
-  const handleDeleteSelected = () => {
-    selectedRows.forEach((index) => {
-      const id = filteredBanners[index]._id;
-      handleDeleteBanner(id);
-    });
-    setSelectedRows([]);
+  const handleDeleteSelected = async () => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete selected banners?"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await Promise.all(
+        selectedRows.map((id) =>
+          axios.delete(`${ApiURL}/banner/deletebanner/${id}`)
+        )
+      );
+      toast.success("Selected banners deleted");
+      fetchBanner();
+      setSelectedRows([]);
+    } catch {
+      toast.error("Error deleting selected banners");
+    }
   };
 
-  const handleSelectRow = (index) => {
-    const updated = selectedRows.includes(index)
-      ? selectedRows.filter((i) => i !== index)
-      : [...selectedRows, index];
-    setSelectedRows(updated);
+
+  const handleSelectRow = (id) => {
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllRows = (checked) => {
+    const currentPageIds = currentBanners.map((banner) => banner._id);
+    if (checked) {
+      const updated = [...new Set([...selectedRows, ...currentPageIds])];
+      setSelectedRows(updated);
+    } else {
+      const remaining = selectedRows.filter(
+        (id) => !currentPageIds.includes(id)
+      );
+      setSelectedRows(remaining);
+    }
   };
 
   const handleSearchChange = (e) => {
@@ -101,20 +126,24 @@ const Banner = () => {
     setCurrentPage(1);
   };
 
-  const filteredBanners = banners.filter((banner) =>
-    (banner.banner || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+const filteredBanners = banners.filter((banner) =>
+  (banner._id || "").includes(searchQuery)
+);
+
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentBanners = filteredBanners.slice(indexOfFirstItem, indexOfLastItem);
+  const currentBanners = filteredBanners.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
 
   return (
     <Container style={{ background: "#F4F4F4", paddingBlock: "20px" }}>
       <div className="d-flex justify-content-between mb-3">
         <Form.Control
           type="text"
-          placeholder="Search Banner"
+          placeholder="Search Banner id"
           value={searchQuery}
           onChange={handleSearchChange}
           className="shadow-sm"
@@ -124,7 +153,12 @@ const Banner = () => {
           <Button
             onClick={() => setShowModal(true)}
             variant="primary"
-            style={{ fontSize: "12px" }}
+            className="fw-semibold"
+            style={{
+              fontSize: "12px",
+              background: "#5c6bc0",
+              borderColor: "#5c6bc0",
+            }}
           >
             + Add Banner
           </Button>
@@ -141,24 +175,29 @@ const Banner = () => {
       </div>
 
       <Card className="border-0 p-3 shadow-sm">
-        <div className="table-responsive bg-white rounded-lg" style={{ maxHeight: "65vh", overflowY: "auto" }}>
+        <div
+          className="table-responsive bg-white rounded-lg"
+          style={{ maxHeight: "65vh", overflowY: "auto", fontSize: "12px " }}
+        >
           <Table className="table table-hover align-middle">
-            <thead className="text-white text-center" style={{ backgroundColor: "#323D4F" }}>
+            <thead
+              className="text-white text-center"
+              style={{ backgroundColor: "#323D4F" }}
+            >
               <tr>
                 <th style={{ width: "5%" }}>
                   <input
                     type="checkbox"
-                    onChange={(e) =>
-                      setSelectedRows(
-                        e.target.checked ? currentBanners.map((_, i) => i) : []
-                      )
-                    }
+                    onChange={(e) => handleSelectAllRows(e.target.checked)}
                     checked={
-                      selectedRows.length === currentBanners.length &&
-                      currentBanners.length > 0
+                      currentBanners.length > 0 &&
+                      currentBanners.every((banner) =>
+                        selectedRows.includes(banner._id)
+                      )
                     }
                   />
                 </th>
+                <th className="text-start">Banner Id</th>
                 <th className="text-start">Banner</th>
                 <th className="text-center">Actions</th>
               </tr>
@@ -169,16 +208,21 @@ const Banner = () => {
                   <td>
                     <input
                       type="checkbox"
-                      checked={selectedRows.includes(index)}
-                      onChange={() => handleSelectRow(index)}
+                      checked={selectedRows.includes(banner._id)}
+                      onChange={() => handleSelectRow(banner._id)}
                     />
                   </td>
+                  <td className="text-start">{banner?._id}</td>
                   <td className="text-start">
                     {banner.banner ? (
                       <img
                         src={`${ImageApiURL}/userbanner/${banner.banner}`}
                         alt="Banner"
-                        style={{ width: "200px", height: "70px", objectFit: "cover" }}
+                        style={{
+                          width: "200px",
+                          height: "70px",
+                          objectFit: "cover",
+                        }}
                       />
                     ) : (
                       "No Image"
@@ -197,7 +241,7 @@ const Banner = () => {
               ))}
               {currentBanners.length === 0 && (
                 <tr>
-                  <td colSpan="3" className="text-center">
+                  <td colSpan="4" className="text-center">
                     No banners found.
                   </td>
                 </tr>
@@ -232,7 +276,10 @@ const Banner = () => {
           <Button variant="dark" onClick={handleAddBanner}>
             Upload
           </Button>
-          <Button variant="outline-secondary" onClick={() => setShowModal(false)}>
+          <Button
+            variant="outline-secondary"
+            onClick={() => setShowModal(false)}
+          >
             Cancel
           </Button>
         </Modal.Footer>

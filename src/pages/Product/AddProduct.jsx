@@ -1,25 +1,18 @@
-import React, { useState } from "react";
+
+
+import React, { useEffect, useState } from "react";
 import { Form, Button, Row, Col, Container, Card } from "react-bootstrap";
 import { FaUpload, FaDownload, FaPlus } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
-
-const subCategoryOptions = {
-  Furniture: [
-    "Sofa",
-    "Chair",
-    "Table",
-    "Bed",
-    "Wardrobe",
-    "Dining Table",
-    "Bench",
-    "Console Table",
-    "Others",
-  ],
-  "Home Decor": ["Wall Art", "Rug", "Curtains", "Lamp"],
-};
+import { useNavigate, useParams } from "react-router-dom";
+import { ApiURL, ImageApiURL } from "../../api";
+import axios from "axios";
+import * as XLSX from "xlsx";
+import { toast, Toaster } from "react-hot-toast";
 
 const AddProduct = () => {
-  const naviagte = useNavigate();
+  const navigate = useNavigate();
+  const { id } = useParams();
+
   const [productData, setProductData] = useState({
     productName: "",
     category: "",
@@ -39,6 +32,85 @@ const AddProduct = () => {
   const [iconPreview, setIconPreview] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [excelFile, setExcelFile] = useState(null);
+  const [categoryData, setCategoryData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [subCategoryData, setSubCategoryData] = useState([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  useEffect(() => {
+    fetchCategories();
+    if (id) {
+      setIsEditMode(true);
+      fetchProductById(id);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (productData.category) {
+      fetchSubcategoriesByCategoryName(productData.category);
+    } else {
+      setSubCategoryData([]);
+    }
+  }, [productData.category]);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${ApiURL}/category/getcategory`);
+      if (res.status === 200) {
+        setCategoryData(res.data?.category || []);
+      }
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      toast.error("Error fetching categories");
+    }
+  };
+
+  const fetchSubcategoriesByCategoryName = async (category) => {
+    try {
+      const response = await axios.post(`${ApiURL}/subcategory/postappsubcat`, {
+        category,
+      });
+      if (response.status === 200 && response.data.subcategories) {
+        setSubCategoryData(response.data.subcategories);
+      } else {
+        setSubCategoryData([]);
+      }
+    } catch (error) {
+      setSubCategoryData([]);
+    }
+  };
+
+  // Fetch product data for editing
+  const fetchProductById = async (id) => {
+    try {
+      const res = await axios.get(`${ApiURL}/product/product-details/${id}`);
+      if (res.status === 200 && res.data.product) {
+        const p = res.data.product;
+        setProductData({
+          productName: p.ProductName || "",
+          category: p.ProductCategory || "",
+          subCategory: p.ProductSubcategory || "",
+          availableStock: p.ProductStock || "",
+          pricing: p.ProductPrice || "",
+          sizeAndWeight: p.ProductSize || "",
+          quantity: p.qty || "",
+          minQuantity: p.minqty || "",
+          seater: p.seater || "",
+          color: p.Color || "",
+          material: p.Material || "",
+          description: p.ProductDesc || "",
+          productIcon: p.ProductIcon || null, // Use existing icon if available
+        });
+        if (p.ProductIcon) {
+          setIconPreview(`${ImageApiURL}product/${p.ProductIcon}`);
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to fetch product details");
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -57,13 +129,6 @@ const AddProduct = () => {
     }
   };
 
-  const handleExcelChange = (e) => {
-    const file = e.target.files[0];
-    setExcelFile(file);
-    // Add logic to parse/upload excel file here
-  };
-
-  // Download template with required columns as per your screenshot
   const handleDownloadTemplate = () => {
     const csvContent =
       "ProductName,ProductDesc,ProductCategory,ProductSubcategory,ProductStock,ProductPrice,seater,Material,ProductSize,Color,qty,minqty\n";
@@ -76,39 +141,167 @@ const AddProduct = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleExcelAdd = () => {
-    // Add logic to add products from excel
-    alert("Excel data added (demo)");
-    setExcelFile(null);
+  const handleExcelChange = (e) => {
+    const file = e.target.files[0];
+    setExcelFile(file);
   };
 
-  const handleSubmit = (e) => {
+  const handleExcelAdd = async () => {
+    if (!excelFile) {
+      toast.error("Please select a file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        const mappedData = jsonData.map((item) => ({
+          ProductName: item["ProductName"],
+          ProductDesc: item["ProductDesc"],
+          ProductCategory: item["ProductCategory"],
+          ProductSubcategory: item["ProductSubcategory"],
+          ProductStock: item["ProductStock"],
+          ProductPrice: item["ProductPrice"],
+          seater: item["seater"],
+          Material: item["Material"],
+          ProductSize: item["ProductSize"],
+          Color: item["Color"],
+          qty: item["qty"],
+          minqty: item["minqty"],
+        }));
+
+        const response = await axios.post(
+          `${ApiURL}/product/bulkuploadproduct`,
+          mappedData
+        );
+
+        if (response.status === 200) {
+          toast.success("Products Added Successfully!");
+          window.location.reload();
+        }
+      } catch (error) {
+        toast.error("Failed to add products. Please try again.");
+      }
+    };
+    reader.readAsArrayBuffer(excelFile);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMessage("Product added successfully!");
-    setTimeout(() => setSuccessMessage(""), 3000);
-    setProductData({
-      productName: "",
-      category: "",
-      subCategory: "",
-      availableStock: "",
-      pricing: "",
-      sizeAndWeight: "",
-      quantity: "",
-      minQuantity: "",
-      seater: "",
-      color: "",
-      material: "",
-      description: "",
-      productIcon: null,
-    });
-    setIconPreview(null);
-    naviagte("/prdoduct-management");
+
+    // Validation
+    if (!productData.category) {
+      toast.error("Please select a category");
+      return;
+    }
+    if (!productData.subCategory) {
+      toast.error("Please select a subcategory");
+      return;
+    }
+    if (!productData.productName) {
+      toast.error("Please enter a product name");
+      return;
+    }
+    if (!productData.description) {
+      toast.error("Please enter a product description");
+      return;
+    }
+    if (!productData.pricing) {
+      toast.error("Please enter a product price");
+      return;
+    }
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append("ProductCategory", productData.category);
+    formData.append("ProductSubcategory", productData.subCategory);
+    formData.append("ProductName", productData.productName);
+    formData.append("ProductDesc", productData.description);
+    formData.append("ProductPrice", productData.pricing);
+    formData.append("ProductStock", productData.availableStock);
+    formData.append("seater", productData.seater);
+    formData.append("Material", productData.material);
+    formData.append("ProductSize", productData.sizeAndWeight);
+    formData.append("Color", productData.color);
+    formData.append("qty", productData.quantity);
+    formData.append("minqty", productData.minQuantity);
+
+    // Only append icon if new file selected or adding
+    if (productData.productIcon) {
+      formData.append("ProductIcon", productData.productIcon);
+    }
+
+    try {
+      setLoading(true);
+      let response;
+      if (isEditMode) {
+        // Update product
+        response = await axios.put(
+          `${ApiURL}/product/editProducts/${id}`,
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
+      } else {
+        // Add product
+        if (!productData.productIcon) {
+          toast.error("Please upload a product icon");
+          setLoading(false);
+          return;
+        }
+        response = await axios.post(`${ApiURL}/product/addProducts`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      if (response.status === 200) {
+        toast.success(
+          isEditMode
+            ? "Product updated successfully"
+            : "Product added successfully"
+        );
+        setSuccessMessage(
+          isEditMode
+            ? "Product updated successfully!"
+            : "Product added successfully!"
+        );
+        setTimeout(() => setSuccessMessage(""), 3000);
+        setProductData({
+          productName: "",
+          category: "",
+          subCategory: "",
+          availableStock: "",
+          pricing: "",
+          sizeAndWeight: "",
+          quantity: "",
+          minQuantity: "",
+          seater: "",
+          color: "",
+          material: "",
+          description: "",
+          productIcon: null,
+        });
+        setIconPreview(null);
+        setTimeout(() => navigate("/product-management"), 1000);
+      } else {
+        toast.error("Failed to submit product");
+      }
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      toast.error("An error occurred while submitting the product");
+    }
   };
 
   return (
     <Container className="my-5">
+      <Toaster />
       <Card className="shadow-lg border-0 rounded-4">
-        {/* Top Bar with Excel Buttons and Add Excel Data */}
         <div
           className="py-3 px-4 rounded-top"
           style={{
@@ -117,50 +310,8 @@ const AddProduct = () => {
           }}
         >
           <h4 className="mb-0 flex-grow-1" style={{ fontSize: 18 }}>
-            Add New Product
+            {isEditMode ? "Edit Product" : "Add New Product"}
           </h4>
-          <div className="pt-4 rounded-top d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              <Button
-                variant="outline-light"
-                className="d-flex align-items-center gap-2"
-                onClick={handleDownloadTemplate}
-                size="sm"
-                style={{ fontSize: 14 }}
-              >
-                <FaDownload /> Download Excel
-              </Button>
-              <Form.Label
-                htmlFor="excel-upload"
-                className="btn btn-outline-light d-flex align-items-center gap-2 mb-0"
-                style={{ cursor: "pointer", fontSize: 14 }}
-              >
-                <FaUpload /> Upload Excel
-                <Form.Control
-                  type="file"
-                  id="excel-upload"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleExcelChange}
-                  style={{ display: "none" }}
-                />
-              </Form.Label>
-              {excelFile && (
-                <span style={{ fontSize: 12, color: "#fff" }}>
-                  {excelFile.name}
-                </span>
-              )}
-            </div>
-            <Button
-              variant="success"
-              className="d-flex align-items-center gap-2"
-              onClick={handleExcelAdd}
-              size="sm"
-              disabled={!excelFile}
-              style={{ fontSize: 14 }}
-            >
-              <FaPlus /> Add Excel Data
-            </Button>
-          </div>
         </div>
 
         <Card.Body className="p-4">
@@ -200,8 +351,11 @@ const AddProduct = () => {
                   style={{ fontSize: 14 }}
                 >
                   <option value="">Select Category</option>
-                  <option value="Furniture">Furniture</option>
-                  <option value="Home Decor">Home Decor</option>
+                  {categoryData.map((cat) => (
+                    <option key={cat._id} value={cat.category}>
+                      {cat.category}
+                    </option>
+                  ))}
                 </Form.Select>
               </Col>
               <Col md={6}>
@@ -218,12 +372,11 @@ const AddProduct = () => {
                   disabled={!productData.category}
                 >
                   <option value="">Select Subcategory</option>
-                  {productData.category &&
-                    subCategoryOptions[productData.category]?.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
+                  {subCategoryData.map((subcat) => (
+                    <option key={subcat._id} value={subcat.subcategory}>
+                      {subcat.subcategory}
+                    </option>
+                  ))}
                 </Form.Select>
               </Col>
             </Row>
@@ -361,20 +514,22 @@ const AddProduct = () => {
             {/* Product Icon Upload */}
             <Form.Group className="mb-4">
               <Form.Label style={{ fontSize: 14 }}>
-                Upload Product Icon <span className="text-danger">*</span>
+                Upload Product Icon
+                {!isEditMode && <span className="text-danger">*</span>}
               </Form.Label>
               <div className="d-flex align-items-center gap-3">
                 <Form.Control
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
-                  required
                   className="rounded-3 shadow-sm"
                   style={{ fontSize: 14 }}
+                  required={!isEditMode}
                 />
                 <FaUpload style={{ fontSize: "18px", color: "#323D4F" }} />
               </div>
-              {iconPreview && (
+              {(iconPreview || 
+                (isEditMode && !iconPreview && productData.productIcon === null && iconPreview !== null)) && (
                 <div className="mt-3">
                   <img
                     src={iconPreview}
@@ -390,7 +545,7 @@ const AddProduct = () => {
               )}
             </Form.Group>
 
-            {/* Add Product Button (Form Data) */}
+            {/* Add/Update Product Button */}
             <Button
               type="submit"
               className="w-100 py-2 rounded-3"
@@ -400,8 +555,16 @@ const AddProduct = () => {
                 fontSize: "14px",
                 fontWeight: "500",
               }}
+              disabled={loading}
             >
-              <FaPlus className="mb-1" /> Add Product
+              <FaPlus className="mb-1" />{" "}
+              {loading
+                ? isEditMode
+                  ? "Updating..."
+                  : "Adding..."
+                : isEditMode
+                ? "Update Product"
+                : "Add Product"}
             </Button>
 
             {/* Success Message */}

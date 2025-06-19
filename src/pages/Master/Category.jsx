@@ -21,7 +21,7 @@ const Category = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [filterData, setFilterData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 3;
+  const itemsPerPage = 5;
 
   useEffect(() => {
     fetchCategories();
@@ -36,7 +36,6 @@ const Category = () => {
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
-      toast.error("Failed to fetch categories");
     }
   };
 
@@ -122,7 +121,7 @@ const Category = () => {
     const confirmDelete = window.confirm("Are you sure you want to delete?");
     if (confirmDelete) {
       try {
-        await axios.post(`${ApiURL}/category/deletecategory/${id}`);
+        await axios.delete(`${ApiURL}/category/deletecategory/${id}`);
         toast.success("Category deleted successfully");
         fetchCategories();
       } catch (error) {
@@ -141,7 +140,7 @@ const Category = () => {
     try {
       await Promise.all(
         selectedRows.map((id) =>
-          axios.post(`${ApiURL}/category/deletecategory/${id}`)
+          axios.delete(`${ApiURL}/category/deletecategory/${id}`)
         )
       );
       toast.success("Selected categories deleted");
@@ -156,6 +155,19 @@ const Category = () => {
     setSelectedRows((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
+  };
+
+  const handleSelectAllRows = (checked) => {
+    const currentPageIds = currentItems.map((item) => item._id);
+    if (checked) {
+      const updated = [...new Set([...selectedRows, ...currentPageIds])];
+      setSelectedRows(updated);
+    } else {
+      const remaining = selectedRows.filter(
+        (id) => !currentPageIds.includes(id)
+      );
+      setSelectedRows(remaining);
+    }
   };
 
   const handleSearchChange = (e) => setSearchQuery(e.target.value);
@@ -215,24 +227,18 @@ const Category = () => {
       <Card className="border-0 p-3 shadow-sm">
         <div
           className="table-responsive bg-white rounded-lg"
-          style={{ maxHeight: "65vh", overflowY: "auto" }}
+          style={{ maxHeight: "65vh", overflowY: "auto", fontSize: "12px " }}
         >
           <Table className="table table-hover align-middle ">
             <thead
               className="text-white text-center"
-              style={{ backgroundColor: "#323D4F", fontSize: "14px" }}
+              style={{ backgroundColor: "#323D4F" }}
             >
               <tr>
                 <th>
                   <input
                     type="checkbox"
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedRows(currentItems.map((item) => item._id));
-                      } else {
-                        setSelectedRows([]);
-                      }
-                    }}
+                    onChange={(e) => handleSelectAllRows(e.target.checked)}
                     checked={
                       currentItems.length > 0 &&
                       currentItems.every((item) =>
@@ -256,9 +262,7 @@ const Category = () => {
                       onChange={() => handleSelectRow(categoryItem._id)}
                     />
                   </td>
-                  <td className="text-start" style={{ fontSize: "12px" }}>
-                    {categoryItem.category}
-                  </td>
+                  <td className="text-start">{categoryItem.category}</td>
                   <td className="text-start">
                     <img
                       src={`${ImageApiURL}/category/${categoryItem.categoryImg}`}
@@ -292,6 +296,14 @@ const Category = () => {
                   </td>
                 </tr>
               ))}
+
+               {filterData.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center">
+                    No Categories found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </Table>
         </div>

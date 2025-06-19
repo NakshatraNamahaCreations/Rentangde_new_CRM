@@ -1,107 +1,49 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, Container } from "react-bootstrap";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { ApiURL } from "../../api";
 
-// Dummy data (reuse from EnquiryList)
-const dummyEnquiries = [
-  {
-    id: 537,
-    enquiryDate: "07-06-2025",
-    time: "Slot 2: 11:00 AM",
-    enqTime: "2025-06-07T11:00:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 536,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 20850,
-  },
-  {
-    id: 535,
-    enquiryDate: "06-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-06T07:00:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 534,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 533,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 4000,
-  },
-  {
-    id: 532,
-    enquiryDate: "07-06-2025",
-    time: "Slot 2: 11:00 AM",
-    enqTime: "2025-06-07T11:00:00",
-    companyName: "VT Enterprises",
-    executiveName: "Dilip",
-    grandTotal: 2550040000,
-  },
-  {
-    id: 531,
-    enquiryDate: "10-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-10T07:00:00",
-    companyName: "Asirwad Banquet",
-    executiveName: "Rohan",
-    grandTotal: 10000,
-  },
-  {
-    id: 530,
-    enquiryDate: "19-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-19T07:00:00",
-    companyName: "VT Enterprises",
-    executiveName: "Dilip",
-    grandTotal: 10000,
-  },
-];
 
 const localizer = momentLocalizer(moment);
 
 const EnquiryCalender = () => {
   const navigate = useNavigate();
-  const [enquiries] = useState(dummyEnquiries);
+  const [enquiries, setEnquiries] = useState([]);
 
-  // Group enquiries by date
+  // Fetch from API
+  useEffect(() => {
+    const fetchEnquiry = async () => {
+      try {
+        const res = await axios.get(`${ApiURL}/Enquiry/getallEnquiry`);
+        if (res.status === 200) {
+          setEnquiries(res.data.enquiryData || []);
+        }
+      } catch (error) {
+        console.error("Error fetching enquiry data:", error);
+      }
+    };
+    fetchEnquiry();
+  }, []);
+
+  // Group enquiries by date (DD-MM-YYYY)
   const enquiriesCountByDate = useMemo(() => {
     const map = {};
     enquiries.forEach((enq) => {
-      // Use enq.enquiryDate as key (format: DD-MM-YYYY)
-      // Convert to YYYY-MM-DD for Date parsing
-      const [dd, mm, yyyy] = enq.enquiryDate.split("-");
-      const dateKey = `${yyyy}-${mm}-${dd}`;
+      // enq.enquiryDate is DD-MM-YYYY
+      const [dd, mm, yyyy] = (enq.enquiryDate || "").split("-");
+      if (!dd || !mm || !yyyy) return;
+      const dateKey = `${yyyy}-${mm}-${dd}`; // for Date parsing
       if (!map[dateKey]) map[dateKey] = [];
       map[dateKey].push(enq);
     });
     return map;
   }, [enquiries]);
 
-  // Create calendar events (one per date)
+  // Calendar events: one per date
   const calendarEvents = Object.entries(enquiriesCountByDate).map(
     ([date, enqs]) => ({
       title: `Enquiries: ${enqs.length}`,
@@ -113,21 +55,31 @@ const EnquiryCalender = () => {
     })
   );
 
-  // On event click, go to /enquiry-by-date/:date (date in DD-MM-YYYY)
+  // Color events
+  const eventStyleGetter = (event) => ({
+    style: {
+      backgroundColor: "#323D4F",
+      color: "white",
+      borderRadius: "4px",
+      border: "none",
+    },
+  });
+
+  // On event click, go to /enquiries-by-date/:date and pass data
   const handleCalendarEventClick = (event) => {
     // Convert YYYY-MM-DD to DD-MM-YYYY
     const [yyyy, mm, dd] = event.date.split("-");
     const ddmmyyyy = `${dd}-${mm}-${yyyy}`;
-    navigate(`/enquiry-by-date/${ddmmyyyy}`);
+    const enquiriesForDate = (enquiriesCountByDate[event.date] || []);
+    navigate(`/enquiries-by-date/${ddmmyyyy}`, {
+      state: { date: ddmmyyyy, enquiries: enquiriesForDate },
+    });
   };
 
   return (
     <Container className="my-4">
       <Card className="shadow-sm">
         <Card.Body>
-          {/* <h5 style={{ fontWeight: 600, fontSize: "1.1rem" }}>
-            Enquiry Calendar
-          </h5> */}
           <div style={{ minHeight: 500 }}>
             <Calendar
               localizer={localizer}
@@ -139,6 +91,7 @@ const EnquiryCalender = () => {
               popup
               selectable
               onSelectEvent={handleCalendarEventClick}
+              eventPropGetter={eventStyleGetter}
             />
           </div>
           <div style={{ fontSize: 13, marginTop: 16, color: "#888" }}>

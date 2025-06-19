@@ -1,100 +1,97 @@
-import React, { useState } from "react";
-import { Button, Card, Container, Form, Table } from "react-bootstrap";
+import React, { useState, useEffect } from "react";
+import { Button, Card, Container, Form, Table, Spinner } from "react-bootstrap";
 import { FaTrashAlt } from "react-icons/fa";
 import { MdVisibility } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
-
-const dummyEnquiries = [
-  {
-    id: 537,
-    enquiryDate: "07-06-2025",
-    time: "Slot 2: 11:00 AM",
-    enqTime: "2025-06-07T11:00:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 536,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 20850,
-  },
-  {
-    id: 535,
-    enquiryDate: "06-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-06T07:00:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 534,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 2000,
-  },
-  {
-    id: 533,
-    enquiryDate: "06-06-2025",
-    time: "Slot 3: 7:30 AM",
-    enqTime: "2025-06-06T07:30:00",
-    companyName: "nnc",
-    executiveName: "suman",
-    grandTotal: 4000,
-  },
-  {
-    id: 532,
-    enquiryDate: "07-06-2025",
-    time: "Slot 2: 11:00 AM",
-    enqTime: "2025-06-07T11:00:00",
-    companyName: "VT Enterprises",
-    executiveName: "Dilip",
-    grandTotal: 2550040000,
-  },
-  {
-    id: 531,
-    enquiryDate: "10-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-10T07:00:00",
-    companyName: "Asirwad Banquet",
-    executiveName: "Rohan",
-    grandTotal: 10000,
-  },
-  {
-    id: 530,
-    enquiryDate: "19-06-2025",
-    time: "Slot 1: 7:00 AM",
-    enqTime: "2025-06-19T07:00:00",
-    companyName: "VT Enterprises",
-    executiveName: "Dilip",
-    grandTotal: 10000,
-  },
-];
+import axios from "axios";
+import { ApiURL } from "../../api";
+import Pagination from "../../components/Pagination";
+import { toast } from "react-hot-toast";
 
 const EnquiryList = () => {
-  const [enquiries, setEnquiries] = useState(dummyEnquiries);
-  const [search, setSearch] = useState("");
+  const [enquiries, setEnquiries] = useState([]);
+  const [searchQuery, setSearchQuery] = useState(""); // General search query
+  const [selectedEnquiries, setSelectedEnquiries] = useState([]); // Track selected rows
   const navigate = useNavigate();
 
+  // Filter logic based on general search query
   const filtered = enquiries.filter(
     (e) =>
-      e.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      e.executiveName.toLowerCase().includes(search.toLowerCase()) ||
-      String(e.grandTotal).includes(search) ||
-      String(e.id).includes(search)
+      (e.enquiryId && String(e.enquiryId).toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (e.companyName && e.companyName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (e.executiveName && e.executiveName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (e.enquiryDate && e.enquiryDate.includes(searchQuery))
   );
 
-  const handleDelete = (id) => {
-    setEnquiries((prev) => prev.filter((e) => e.id !== id));
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete?");
+    if (confirmDelete) {
+      try {
+        const response = await axios.delete(
+          `${ApiURL}/Enquiry/deleteEnquiry/${id}`
+        );
+        if (response.status === 200) {
+          window.location.reload();
+          toast.success("Successfully Deleted");
+        }
+      } catch (error) {
+        toast.error("Enquiry Not Deleted");
+        console.error("Error deleting the Enquiry:", error);
+      }
+    }
   };
+
+  const handleSelectRow = (id) => {
+    setSelectedEnquiries((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
+  };
+
+  // Handle 'Select All' checkbox toggle
+  const handleSelectAll = () => {
+    if (selectedEnquiries.length === currentItems.length) {
+      setSelectedEnquiries([]); // Deselect all if already all are selected
+    } else {
+      setSelectedEnquiries(currentItems.map((e) => e._id)); // Select all current page items
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm("Are you sure you want to delete selected enquiries?"))
+      return;
+    for (const id of selectedEnquiries) {
+      try {
+        await axios.delete(`${ApiURL}/Enquiry/deleteEnquiry/${id}`);
+      } catch (err) {
+        alert("Failed to delete some enquiries.");
+      }
+    }
+    setEnquiries((prev) =>
+      prev.filter((enquiry) => !selectedEnquiries.includes(enquiry._id))
+    );
+    setSelectedEnquiries([]);
+  };
+
+  useEffect(() => {
+    const fetchEnquiries = async () => {
+      try {
+        const res = await axios.get(`${ApiURL}/Enquiry/getallEnquiry`);
+        if (res.status === 200) {
+          setEnquiries(res.data.enquiryData);
+        }
+      } catch (error) {
+        console.error("Error fetching enquiries:", error);
+      }
+    };
+    fetchEnquiries();
+  }, []);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <Container className="my-4">
@@ -121,15 +118,31 @@ const EnquiryList = () => {
 
       <Card className="shadow-sm">
         <Card.Body>
+          {/* Search Bar */}
           <div className="mb-3">
             <Form.Control
               size="sm"
               style={{ fontSize: "0.92rem", maxWidth: 300 }}
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by Enquiry Id, Company, Executive, or Date"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          {/* Display Delete Selected Button only when there are selected rows */}
+          {selectedEnquiries.length > 0 && (
+            <div className="text-end mb-3">
+              <Button
+                variant="outline-danger"
+                size="sm"
+                onClick={handleDeleteSelected}
+                style={{ marginBottom: "20px" }}
+              >
+                Delete {selectedEnquiries.length} Selected Enquiries
+              </Button>
+            </div>
+          )}
+
           <div className="table-responsive">
             <Table
               striped
@@ -140,35 +153,47 @@ const EnquiryList = () => {
             >
               <thead style={{ background: "#f8f9fa" }}>
                 <tr>
-                  <th style={{ width: "5%" }}>S.No.</th>
-                  <th style={{ width: "10%" }}>Enquiry Date</th>
+                  <th style={{ width: "5%" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedEnquiries.length === currentItems.length}
+                      onChange={handleSelectAll} // Select/Deselect all items
+                    />
+                  </th>
+                  <th style={{ width: "10%" }}>Enquiry Id</th>
+                  <th style={{ width: "12%" }}>Enquiry Date</th>
                   <th style={{ width: "12%" }}>Time</th>
-                  <th style={{ width: "18%" }}>Enq Time</th>
                   <th style={{ width: "18%" }}>Company Name</th>
                   <th style={{ width: "15%" }}>Executive Name</th>
                   <th style={{ width: "10%" }}>GrandTotal</th>
                   <th style={{ width: "12%" }} className="text-center">
-                    Action
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((enq, idx) => (
-                  <tr key={enq.id}>
-                    <td>{enq.id}</td>
+                {currentItems.map((enq) => (
+                  <tr key={enq._id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedEnquiries.includes(enq._id)} // Individual row selection
+                        onChange={() => handleSelectRow(enq._id)} // Select/unselect individual row
+                      />
+                    </td>
+                    <td>{enq.enquiryId}</td>
                     <td>{enq.enquiryDate}</td>
-                    <td>{enq.time}</td>
-                    <td>{enq.enqTime}</td>
-                    <td>{enq.companyName}</td>
-                    <td>{enq.executiveName}</td>
-                    <td>{enq.grandTotal}</td>
+                    <td>{enq.enquiryTime}</td>
+                    <td>{enq.clientName}</td>
+                    <td>{enq.executivename}</td>
+                    <td>{enq.GrandTotal}</td>
                     <td className="text-center">
                       <Button
                         variant="outline-danger"
                         size="sm"
                         className="me-2"
                         style={{ padding: "4px 8px", fontSize: "10px" }}
-                        onClick={() => handleDelete(enq.id)}
+                        onClick={() => handleDelete(enq._id)}
                       >
                         <FaTrashAlt />
                       </Button>
@@ -177,25 +202,33 @@ const EnquiryList = () => {
                         size="sm"
                         className="icon-btn"
                         style={{ padding: "4px 8px", fontSize: "10px" }}
-                        onClick={() => navigate(`/enquiry-details/`)}
+                        onClick={() => navigate(`/enquiry-details/${enq._id}`)}
                       >
                         <MdVisibility />
                       </Button>
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="text-center text-muted">
-                      No enquiries found.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </Table>
+            {currentItems.length === 0 && (
+              <Container
+                className="text-center d-flex justify-content-center align-items-center"
+                style={{ width: "100%", height: "60vh" }}
+              >
+                <Spinner animation="border" />
+              </Container>
+            )}
           </div>
         </Card.Body>
       </Card>
+
+      <Pagination
+        totalItems={filtered.length}
+        itemsPerPage={10}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+      />
     </Container>
   );
 };

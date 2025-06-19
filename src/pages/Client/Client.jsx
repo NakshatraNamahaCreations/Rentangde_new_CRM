@@ -3,36 +3,12 @@ import { Button, Card, Table, Container, Modal, Form } from "react-bootstrap";
 import Pagination from "../../components/Pagination";
 import { FaTrashAlt } from "react-icons/fa";
 import { MdVisibility } from "react-icons/md";
+import { FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { ApiURL } from "../../api";
 
-const dummyClients = [
-  {
-    companyName: "VT Enterprises",
-    contactPersonNumber: "9606605708",
-    email: "vt@gmail.com",
-    address: "8/2, 2ND CROSS, MANJUNATHA NAGAR, Bengaluru",
-    executives: [
-      { name: "Suresh Kumar", phone: "9823051234" },
-      { name: "Pooja Rao", phone: "9345678123" },
-    ],
-  },
-  {
-    companyName: "EMG Productions",
-    contactPersonNumber: "7019871203",
-    email: "emg@example.com",
-    address: "#6, 1st floor, Anepalya Main Road, Bengaluru",
-    executives: [
-      { name: "Arjun Mehta", phone: "9876543210" },
-    ],
-  },
-  {
-    companyName: "Pixel Creatives",
-    contactPersonNumber: "9123456780",
-    email: "pixel@example.com",
-    address: "45, MG Road, Chennai",
-    executives: [],
-  },
-];
+const PAGE_SIZE = 10;
 
 const Client = () => {
   const navigate = useNavigate();
@@ -41,29 +17,73 @@ const Client = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [viewClient, setViewClient] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Load from localStorage or fallback to dummy data
+  // Fetch clients from API
   useEffect(() => {
-    const storedClients = localStorage.getItem("clients");
-    if (storedClients) {
-      setClients(JSON.parse(storedClients));
-    } else {
-      localStorage.setItem("clients", JSON.stringify(dummyClients));
-      setClients(dummyClients);
-    }
+    fetchClients();
   }, []);
 
-  const handleDeleteClient = (index) => {
-    const updatedClients = clients.filter((_, i) => i !== index);
-    setClients(updatedClients);
-    localStorage.setItem("clients", JSON.stringify(updatedClients));
+  const fetchClients = async () => {
+    try {
+      const res = await axios.get(`${ApiURL}/client/getallClients`);
+      if (res.status === 200 && Array.isArray(res.data.Client)) {
+        // Map API data to expected structure
+        const mapped = res.data.Client.map((c) => ({
+          companyName: c.clientName || "",
+          contactPersonNumber: c.phoneNumber || "",
+          email: c.email || "",
+          address: c.address || "",
+          executives: c.executives || [],
+          _id: c._id,
+        }));
+        setClients(mapped);
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
   };
 
-  const handleDeleteSelected = () => {
-    const updatedClients = clients.filter((_, index) => !selectedRows.includes(index));
-    setClients(updatedClients);
+  // Pagination logic
+  const filteredClients = clients.filter((client) =>
+    client.companyName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const totalItems = filteredClients.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Handlers
+  const handleDeleteClient = async (index) => {
+    const client = paginatedClients[index];
+    if (!client || !client._id) return;
+    if (!window.confirm("Are you sure you want to delete this client?")) return;
+    try {
+      await axios.delete(`${ApiURL}/client/deleteClients/${client._id}`);
+      fetchClients();
+      setSelectedRows((prev) => prev.filter((i) => i !== index));
+    } catch (error) {
+      console.error("Error deleting client:", error);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm("Are you sure you want to delete selected clients?"))
+      return;
+    for (const idx of selectedRows) {
+      const client = paginatedClients[idx];
+      if (client && client._id) {
+        try {
+          await axios.delete(`${ApiURL}/client/deleteClients/${client._id}`);
+        } catch (error) {
+          console.error("Error deleting client:", error);
+        }
+      }
+    }
+    fetchClients();
     setSelectedRows([]);
-    localStorage.setItem("clients", JSON.stringify(updatedClients));
   };
 
   const handleSelectRow = (index) => {
@@ -73,23 +93,28 @@ const Client = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedRows.length === filteredClients.length) {
+    if (selectedRows.length === paginatedClients.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(clients.map((_, index) => index));
+      setSelectedRows(paginatedClients.map((_, index) => index));
     }
   };
 
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+    setSelectedRows([]);
+  };
 
   const handleViewClient = (client) => {
     setViewClient(client);
     setShowViewModal(true);
   };
 
-  const filteredClients = clients.filter((client) =>
-    client.companyName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    setSelectedRows([]);
+  };
 
   return (
     <Container style={{ background: "#F4F4F4", paddingBlock: "20px" }}>
@@ -142,7 +167,10 @@ const Client = () => {
                 <th style={{ width: "5%" }}>
                   <input
                     type="checkbox"
-                    checked={selectedRows.length === filteredClients.length}
+                    checked={
+                      paginatedClients.length > 0 &&
+                      selectedRows.length === paginatedClients.length
+                    }
                     onChange={handleSelectAll}
                   />
                 </th>
@@ -153,8 +181,8 @@ const Client = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredClients.map((client, index) => (
-                <tr key={index} className="text-center hover-row">
+              {paginatedClients.map((client, index) => (
+                <tr key={client._id || index} className="text-center hover-row">
                   <td>
                     <input
                       type="checkbox"
@@ -162,7 +190,10 @@ const Client = () => {
                       onChange={() => handleSelectRow(index)}
                     />
                   </td>
-                  <td className="fw-semibold text-start" style={{ fontSize: "12px" }}>
+                  <td
+                    className="fw-semibold text-start"
+                    style={{ fontSize: "12px" }}
+                  >
                     {client.companyName}
                   </td>
                   <td className="text-start" style={{ fontSize: "12px" }}>
@@ -173,32 +204,44 @@ const Client = () => {
                   </td>
                   <td className="text-center">
                     <Button
+                      variant="outline-dark"
+                      size="sm"
+                      className="me-2 icon-btn"
+                      style={{ padding: "4px 8px", fontSize: "10px" }}
+                      onClick={() => handleViewClient(client)}
+                    >
+                      <FaEye />
+                    </Button>
+                    <Button
                       variant="outline-danger"
                       size="sm"
-                      className="me-2"
                       style={{ padding: "4px 8px", fontSize: "10px" }}
                       onClick={() => handleDeleteClient(index)}
                     >
                       <FaTrashAlt />
                     </Button>
-                    <Button
-                      variant="outline-dark"
-                      size="sm"
-                      className="icon-btn"
-                      style={{ padding: "4px 8px", fontSize: "10px" }}
-                      onClick={() => handleViewClient(client)}
-                    >
-                      <MdVisibility />
-                    </Button>
                   </td>
                 </tr>
               ))}
+
+              {filteredClients.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="text-center">
+                    No Products found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </Table>
         </div>
       </Card>
 
-      <Pagination totalItems={filteredClients.length} />
+      <Pagination
+        totalItems={totalItems}
+        pageSize={PAGE_SIZE}
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
+      />
 
       {/* View Modal */}
       <Modal
@@ -212,15 +255,26 @@ const Client = () => {
         <Modal.Body style={{ fontSize: "14px" }}>
           {viewClient && (
             <>
-              <p><strong>Company Name:</strong> {viewClient.companyName}</p>
-              <p><strong>Contact Person Number:</strong> {viewClient.contactPersonNumber}</p>
-              <p><strong>Email:</strong> {viewClient.email || "N/A"}</p>
-              <p><strong>Address:</strong> {viewClient.address}</p>
+              <p>
+                <strong>Company Name:</strong> {viewClient.companyName}
+              </p>
+              <p>
+                <strong>Contact Person Number:</strong>{" "}
+                {viewClient.contactPersonNumber}
+              </p>
+              <p>
+                <strong>Email:</strong> {viewClient.email || "N/A"}
+              </p>
+              <p>
+                <strong>Address:</strong> {viewClient.address}
+              </p>
               <hr />
               <h6>Executives:</h6>
               {viewClient.executives && viewClient.executives.length > 0 ? (
                 viewClient.executives.map((exec, idx) => (
-                  <p key={idx}>👤 {exec.name} - 📞 {exec.phone}</p>
+                  <p key={idx}>
+                    👤 {exec.name} - 📞 {exec.phoneNumber || exec.phone}
+                  </p>
                 ))
               ) : (
                 <p>No executives added.</p>

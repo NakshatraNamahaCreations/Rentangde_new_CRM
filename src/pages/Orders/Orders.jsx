@@ -1,4 +1,394 @@
-import React, { useState } from "react";
+// import React, { useState, useEffect } from "react";
+// import { Button, Card, Container, Form, Table } from "react-bootstrap";
+// import { Calendar, momentLocalizer } from "react-big-calendar";
+// import { MdVisibility, MdDelete } from "react-icons/md";
+// import moment from "moment";
+// import { useNavigate } from "react-router-dom";
+// import "react-big-calendar/lib/css/react-big-calendar.css";
+// import Pagination from "../../components/Pagination";
+// import axios from "axios";
+// import { ApiURL } from "../../api";
+
+// const localizer = momentLocalizer(moment);
+
+// const PAGE_SIZE = 10;
+
+// const Orders = () => {
+//   const [viewMode, setViewMode] = useState("list");
+//   const [orders, setOrders] = useState([]);
+//   const [filteredOrders, setFilteredOrders] = useState([]);
+//   const [searchQuery, setSearchQuery] = useState("");
+//   const [fromDate, setFromDate] = useState("");
+//   const [toDate, setToDate] = useState("");
+//   const [currentPage, setCurrentPage] = useState(1);
+//   const [deletingId, setDeletingId] = useState(null);
+//   const [selectedOrders, setSelectedOrders] = useState([]); // Track selected rows
+//   const navigate = useNavigate();
+
+//   // Fetch orders from API
+//   useEffect(() => {
+//     const fetchOrders = async () => {
+//       try {
+//         const res = await axios.get(`${ApiURL}/order/getallorder`);
+//         if (res.status === 200) {
+//           const transformed = res.data.orderData.map((order) => {
+//             // Iterate through the slots and get the quoteDate
+//             const slotsWithQuoteDates = order.slots.map((slot) => ({
+//               ...slot,
+//               quoteDate: slot.quoteDate,
+//             }));
+
+//             return {
+//               ...order,
+//               companyName: order.clientName,
+//               executiveName: order.executivename,
+//               grandTotal: order.GrandTotal,
+//               bookingDate: order.createdAt,
+//               slots: slotsWithQuoteDates,
+//               address: order.Address,
+//               id: order._id,
+//               orderStatus: order.orderStatus,
+//             };
+//           });
+//           setOrders(transformed);
+//         }
+//       } catch (error) {
+//         setOrders([]);
+//       }
+//     };
+//     fetchOrders();
+//   }, []);
+
+//   // Filtering logic
+//   useEffect(() => {
+//     let data = [...orders];
+//     const query = searchQuery.toLowerCase();
+
+//     if (query) {
+//       data = data.filter(
+//         (order) =>
+//           (order.companyName || "").toLowerCase().includes(query) ||
+//           (order.executiveName || "").toLowerCase().includes(query) ||
+//           (order.address || "").toLowerCase().includes(query) ||
+//           String(order.grandTotal || "").includes(query) ||
+//           (order.orderStatus || "").toLowerCase().includes(query)
+//       );
+//     }
+
+//     // Filter by fromDate (quoteDate inside slots)
+//     if (fromDate) {
+//       data = data.filter((order) =>
+//         order.slots.some((slot) =>
+//           moment(slot.quoteDate, "DD-MM-YYYY").isSameOrAfter(
+//             moment(fromDate, "YYYY-MM-DD")
+//           )
+//         )
+//       );
+//     }
+
+//     // Filter by toDate (quoteDate inside slots)
+//     if (toDate) {
+//       data = data.filter((order) =>
+//         order.slots.some((slot) =>
+//           moment(slot.quoteDate, "DD-MM-YYYY").isSameOrBefore(
+//             moment(toDate, "YYYY-MM-DD")
+//           )
+//         )
+//       );
+//     }
+
+//     setFilteredOrders(data);
+//     setCurrentPage(1);
+//   }, [orders, searchQuery, fromDate, toDate]);
+
+//   // Pagination logic
+//   const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
+//   const paginatedOrders = filteredOrders.slice(
+//     (currentPage - 1) * PAGE_SIZE,
+//     currentPage * PAGE_SIZE
+//   );
+
+//   // Calendar events: Group orders by quoteDate in slots
+//   const ordersCountByDate = filteredOrders.reduce((acc, order) => {
+//     order.slots.forEach((slot) => {
+//       const dateKey = moment(slot.quoteDate, "DD-MM-YYYY").format("YYYY-MM-DD");
+//       acc[dateKey] = acc[dateKey] || [];
+//       acc[dateKey].push(order);
+//     });
+//     return acc;
+//   }, {});
+
+//   const calendarEvents = Object.entries(ordersCountByDate).map(
+//     ([date, ordersArr]) => ({
+//       title: `Orders: ${ordersArr.length}`,
+//       start: new Date(date),
+//       end: new Date(date),
+//       allDay: true,
+//       orders: ordersArr,
+//       date,
+//     })
+//   );
+
+//   const handleCalendarEventClick = (event) => {
+//     navigate(`/orders-by-date/${event.date}`);
+//   };
+
+//   // Delete order
+//   const handleDelete = async (id) => {
+//     if (!window.confirm("Are you sure you want to delete this order?")) return;
+//     setDeletingId(id);
+//     try {
+//       await axios.delete(`${ApiURL}/order/delete/${id}`);
+//       setOrders((prev) => prev.filter((order) => order.id !== id));
+//     } catch (err) {
+//       alert("Failed to delete order.");
+//     }
+//     setDeletingId(null);
+//   };
+
+//   // Row select handler
+//   const handleSelectRow = (id) => {
+//     setSelectedOrders((prev) =>
+//       prev.includes(id)
+//         ? prev.filter((orderId) => orderId !== id)
+//         : [...prev, id]
+//     );
+//   };
+
+//   // Select all rows
+//   const handleSelectAll = () => {
+//     if (selectedOrders.length === paginatedOrders.length) {
+//       setSelectedOrders([]);
+//     } else {
+//       setSelectedOrders(paginatedOrders.map((order) => order.id));
+//     }
+//   };
+
+//   // Delete selected orders
+//   const handleDeleteSelected = async () => {
+//     if (!window.confirm("Are you sure you want to delete selected orders?"))
+//       return;
+//     for (const id of selectedOrders) {
+//       try {
+//         await axios.delete(`${ApiURL}/order/delete/${id}`);
+//       } catch (err) {
+//         alert("Failed to delete some orders.");
+//       }
+//     }
+//     setOrders((prev) =>
+//       prev.filter((order) => !selectedOrders.includes(order.id))
+//     );
+//     setSelectedOrders([]);
+//   };
+
+//   const eventStyleGetter = (event) => ({
+//     style: {
+//       backgroundColor: "#323D4F",
+//       color: "white",
+//       borderRadius: "4px",
+//       border: "none",
+//     },
+//   });
+
+//   return (
+//     <Container className="my-4">
+//       {/* Header */}
+//       <Card className="shadow-sm mb-4">
+//         <Card.Body className="text-center">
+//           <h2 style={{ fontSize: "1.75rem" }}>Order Management</h2>
+//         </Card.Body>
+//       </Card>
+
+//       {/* Controls */}
+//       <Card className="shadow-sm mb-4">
+//         <Card.Body>
+//           <div className="row align-items-center">
+//             <div className="col-md-6 mb-3 mb-md-0">
+//               <Form.Check
+//                 type="switch"
+//                 id="view-toggle"
+//                 label={
+//                   viewMode === "list"
+//                     ? "Switch to Calendar View"
+//                     : "Switch to List View"
+//                 }
+//                 onChange={() =>
+//                   setViewMode(viewMode === "list" ? "calendar" : "list")
+//                 }
+//                 checked={viewMode === "calendar"}
+//               />
+//             </div>
+//             {viewMode === "list" && (
+//               <>
+//                 <div className="col-md-3 mb-3 mb-md-0">
+//                   <Form.Control
+//                     type="date"
+//                     value={fromDate}
+//                     onChange={(e) => setFromDate(e.target.value)}
+//                     size="sm"
+//                     placeholder="From date"
+//                   />
+//                 </div>
+//                 <div className="col-md-3 mb-3 mb-md-0">
+//                   <Form.Control
+//                     type="date"
+//                     value={toDate}
+//                     onChange={(e) => setToDate(e.target.value)}
+//                     size="sm"
+//                     placeholder="To date"
+//                   />
+//                 </div>
+//               </>
+//             )}
+//           </div>
+//           {viewMode === "list" && (
+//             <div className="d-flex justify-content-between align-items-center py-2">
+//               <div className="col-md-4 mt-3">
+//                 <Form.Control
+//                   type="text"
+//                   placeholder="Search by Company, Executive, Date, Amount, Address, Status"
+//                   value={searchQuery}
+//                   onChange={(e) => setSearchQuery(e.target.value)}
+//                   size="sm"
+//                 />
+//               </div>
+//               {selectedOrders.length > 0 && (
+//                 <Button
+//                   variant="outline-danger"
+//                   size="sm"
+//                   onClick={handleDeleteSelected}
+//                 >
+//                   Delete {selectedOrders.length} Selected Orders
+//                 </Button>
+//               )}
+//             </div>
+//           )}
+//         </Card.Body>
+//       </Card>
+
+//       {/* Content */}
+//       {viewMode === "list" ? (
+//         <Card className="shadow-sm">
+//           <div className="table-responsive">
+//             <Table
+//               striped
+//               hover
+//               bordered
+//               className="mb-0"
+//               style={{ fontSize: "0.85rem" }}
+//             >
+//               <thead style={{ backgroundColor: "#f8f9fa" }}>
+//                 <tr>
+//                   <th style={{ width: "5%" }}>
+//                     <input
+//                       type="checkbox"
+//                       checked={selectedOrders.length === paginatedOrders.length}
+//                       onChange={handleSelectAll}
+//                     />
+//                   </th>
+//                   <th style={{ width: "10%" }}>Booking Date</th>
+//                   <th style={{ width: "15%" }}>Company Name</th>
+//                   <th style={{ width: "15%" }}>Executive Name</th>
+//                   <th style={{ width: "10%" }}>Grand Total</th>
+//                   <th style={{ width: "10%" }}>Quote Date</th>
+//                   <th style={{ width: "25%" }}>Address</th>
+//                   <th style={{ width: "15%" }} className="text-center">
+//                     Action
+//                   </th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {paginatedOrders.map((order) => {
+//                   const quoteDate =
+//                     order.slots.length > 0 ? order.slots[0].quoteDate : "";
+//                   const isSelected = selectedOrders.includes(order.id); // Check if selected
+//                   return (
+//                     <tr
+//                       key={order.id}
+//                       style={{ verticalAlign: "middle" }}
+//                       onClick={() => handleSelectRow(order.id)}
+//                       className={isSelected ? "table-info" : ""}
+//                     >
+//                       <td>
+//                         <input
+//                           type="checkbox"
+//                           checked={isSelected}
+//                           onChange={() => handleSelectRow(order.id)}
+//                         />
+//                       </td>
+//                       <td>{moment(order.bookingDate).format("MM/DD/YYYY")}</td>
+//                       <td>{order.companyName}</td>
+//                       <td>{order.executiveName}</td>
+//                       <td>{order.grandTotal}</td>
+//                       {/* <td>{moment(quoteDate).format("MM/DD/YYYY")}</td> */}
+//                    <td>{quoteDate}</td>
+
+//                       <td>{order.address}</td>
+//                       <td className="text-center">
+//                         <Button
+//                           variant="outline-dark"
+//                           size="sm"
+//                           onClick={() =>
+//                             navigate(`/orders-details/${order.id}`)
+//                           }
+//                           className="me-2"
+//                           title="View"
+//                         >
+//                           <MdVisibility />
+//                         </Button>
+//                         <Button
+//                           variant="outline-danger"
+//                           size="sm"
+//                           onClick={() => handleDelete(order.id)}
+//                           disabled={deletingId === order.id}
+//                           title="Delete"
+//                         >
+//                           <MdDelete />
+//                         </Button>
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+//                 {paginatedOrders.length === 0 && (
+//                   <tr>
+//                     <td colSpan="8" className="text-center text-muted">
+//                       No orders found.
+//                     </td>
+//                   </tr>
+//                 )}
+//               </tbody>
+//             </Table>
+//           </div>
+//           <Pagination
+//             totalItems={filteredOrders.length}
+//             pageSize={PAGE_SIZE}
+//             currentPage={currentPage}
+//             onPageChange={setCurrentPage}
+//           />
+//         </Card>
+//       ) : (
+//         <Card className="shadow-sm p-3">
+//           <Calendar
+//             localizer={localizer}
+//             events={calendarEvents}
+//             startAccessor="start"
+//             endAccessor="end"
+//             style={{ height: 600 }}
+//             views={["month", "week", "day", "agenda"]}
+//             popup
+//             selectable
+//             onSelectEvent={handleCalendarEventClick}
+//             eventPropGetter={eventStyleGetter}
+//           />
+//         </Card>
+//       )}
+//     </Container>
+//   );
+// };
+
+// export default Orders;
+
+import React, { useState, useEffect } from "react";
 import { Button, Card, Container, Form, Table } from "react-bootstrap";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import { MdVisibility } from "react-icons/md";
@@ -6,185 +396,113 @@ import moment from "moment";
 import { useNavigate } from "react-router-dom";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import Pagination from "../../components/Pagination";
+import axios from "axios";
+import { ApiURL } from "../../api";
 
 const localizer = momentLocalizer(moment);
 
-export const dummyOrders = [
-  {
-    id: 1,
-    companyName: "NNC Pvt Ltd",
-    contactNumber: "9876543210",
-    executiveName: "Ravi Kumar",
-    address: "Channasandra Bus Stand, Bangalore",
-    orderStatus: "Completed",
-    grandTotal: 2000,
-    productsList: ["Chair", "Table"],
-    bookingDate: "2025-06-06T16:07:58",
-    startDate: "2025-06-07",
-    email: "contact@nnc.com",
-  },
-  {
-    id: 2,
-    companyName: "VT Enterprises",
-    contactNumber: "9123456780",
-    executiveName: "Vikram T",
-    address: "8/2, 2ND CROSS, MANJUNATHA NAGAR, Bengaluru, Karnataka, 560016",
-    orderStatus: "Pending",
-    grandTotal: 11683.36,
-    productsList: ["Sofa", "Lamp"],
-    bookingDate: "2025-06-06T11:01:48",
-    startDate: "2025-06-07",
-    email: "info@vtenterprises.com",
-  },
-  {
-    id: 3,
-    companyName: "Sharath Art Director",
-    contactNumber: "9988776655",
-    executiveName: "Sharath",
-    address: "Peacock Studio, Bangalore",
-    orderStatus: "In Progress",
-    grandTotal: 147500,
-    productsList: ["Backdrop", "Props"],
-    bookingDate: "2025-06-04T10:50:18",
-    startDate: "2025-06-07",
-    email: "sharath@art.com",
-  },
-  {
-    id: 4,
-    companyName: "Creative Events",
-    contactNumber: "9001122334",
-    executiveName: "Priya Singh",
-    address: "MG Road, Bangalore",
-    orderStatus: "Completed",
-    grandTotal: 8500,
-    productsList: ["Stage", "Lights"],
-    bookingDate: "2025-06-03T09:30:00",
-    startDate: "2025-06-08",
-    email: "priya@creativeevents.com",
-  },
-  {
-    id: 5,
-    companyName: "Urban Decor",
-    contactNumber: "9011223344",
-    executiveName: "Amit Jain",
-    address: "Indiranagar, Bangalore",
-    orderStatus: "Cancelled",
-    grandTotal: 4500,
-    productsList: ["Curtains", "Cushions"],
-    bookingDate: "2025-06-02T14:15:00",
-    startDate: "2025-06-09",
-    email: "amit@urbandecor.com",
-  },
-  {
-    id: 6,
-    companyName: "Elegant Weddings",
-    contactNumber: "9022334455",
-    executiveName: "Neha Kapoor",
-    address: "Jayanagar, Bangalore",
-    orderStatus: "Completed",
-    grandTotal: 25000,
-    productsList: ["Mandap", "Flowers"],
-    bookingDate: "2025-06-01T12:00:00",
-    startDate: "2025-06-10",
-    email: "neha@elegantweddings.com",
-  },
-  {
-    id: 7,
-    companyName: "StudioX",
-    contactNumber: "9033445566",
-    executiveName: "Rahul Mehra",
-    address: "Koramangala, Bangalore",
-    orderStatus: "Pending",
-    grandTotal: 12000,
-    productsList: ["Camera", "Tripod"],
-    bookingDate: "2025-05-31T17:45:00",
-    startDate: "2025-06-11",
-    email: "rahul@studiox.com",
-  },
-  {
-    id: 8,
-    companyName: "Eventify",
-    contactNumber: "9044556677",
-    executiveName: "Sonia Rao",
-    address: "HSR Layout, Bangalore",
-    orderStatus: "Completed",
-    grandTotal: 9800,
-    productsList: ["Banner", "Stands"],
-    bookingDate: "2025-05-30T10:20:00",
-    startDate: "2025-06-12",
-    email: "sonia@eventify.com",
-  },
-  {
-    id: 9,
-    companyName: "The Decor House",
-    contactNumber: "9055667788",
-    executiveName: "Karan Patel",
-    address: "Whitefield, Bangalore",
-    orderStatus: "In Progress",
-    grandTotal: 6700,
-    productsList: ["Vases", "Tablecloth"],
-    bookingDate: "2025-05-29T15:10:00",
-    startDate: "2025-06-13",
-    email: "karan@dechorhouse.com",
-  },
-  {
-    id: 10,
-    companyName: "Party Planners",
-    contactNumber: "9066778899",
-    executiveName: "Deepa Nair",
-    address: "BTM Layout, Bangalore",
-    orderStatus: "Completed",
-    grandTotal: 5400,
-    productsList: ["Balloons", "Confetti"],
-    bookingDate: "2025-05-28T11:05:00",
-    startDate: "2025-06-14",
-    email: "deepa@partyplanners.com",
-  },
-];
+const PAGE_SIZE = 10;
 
 const Orders = () => {
   const [viewMode, setViewMode] = useState("list");
-  const [orders] = useState(dummyOrders);
+  const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
 
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+  // Fetch orders from API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await axios.get(`${ApiURL}/order/getallorder`);
+        if (res.status === 200) {
+          const transformed = res.data.orderData.map((order) => {
+            const slotsWithQuoteDates = order.slots.map((slot) => ({
+              ...slot,
+              quoteDate: slot.quoteDate,
+            }));
 
-  const handleViewToggle = () => {
-    setViewMode(viewMode === "list" ? "calendar" : "list");
-  };
+            return {
+              ...order,
+              companyName: order.clientName,
+              executiveName: order.executivename,
+              grandTotal: order.GrandTotal,
+              bookingDate: order.createdAt,
+              slots: slotsWithQuoteDates,
+              address: order.Address,
+              id: order._id,
+              orderStatus: order.orderStatus,
+            };
+          });
+          setOrders(transformed);
+        }
+      } catch (error) {
+        setOrders([]);
+      }
+    };
+    fetchOrders();
+  }, []);
 
-  const filterOrders = () => {
-    return orders.filter((order) => {
-      const query = searchQuery.toLowerCase();
-      const isMatch =
-        order.companyName.toLowerCase().includes(query) ||
-        order.executiveName.toLowerCase().includes(query) ||
-        order.address.toLowerCase().includes(query) ||
-        String(order.grandTotal).includes(query) ||
-        order.bookingDate.includes(query);
+  // Filtering logic
+  useEffect(() => {
+    let data = [...orders];
+    const query = searchQuery.toLowerCase();
 
-      const inDateRange =
-        (!fromDate || new Date(order.bookingDate) >= new Date(fromDate)) &&
-        (!toDate || new Date(order.bookingDate) <= new Date(toDate));
+    if (query) {
+      data = data.filter(
+        (order) =>
+          (order.companyName || "").toLowerCase().includes(query) ||
+          (order.executiveName || "").toLowerCase().includes(query) ||
+          (order.address || "").toLowerCase().includes(query) ||
+          // String(order.grandTotal || "").includes(query) ||
+          (order.orderStatus || "").toLowerCase().includes(query)
+      );
+    }
 
-      return isMatch && inDateRange;
-    });
-  };
+    if (fromDate) {
+      data = data.filter((order) =>
+        order.slots.some((slot) =>
+          moment(slot.quoteDate, "DD-MM-YYYY").isSameOrAfter(
+            moment(fromDate, "YYYY-MM-DD")
+          )
+        )
+      );
+    }
 
-  const filteredOrders = filterOrders();
+    if (toDate) {
+      data = data.filter((order) =>
+        order.slots.some((slot) =>
+          moment(slot.quoteDate, "DD-MM-YYYY").isSameOrBefore(
+            moment(toDate, "YYYY-MM-DD")
+          )
+        )
+      );
+    }
 
-  // Group orders by booking date and count them for calendar view
+    setFilteredOrders(data);
+    setCurrentPage(1);
+  }, [orders, searchQuery, fromDate, toDate]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Calendar events
   const ordersCountByDate = filteredOrders.reduce((acc, order) => {
-    const dateKey = moment(order.bookingDate).format("YYYY-MM-DD");
-    acc[dateKey] = acc[dateKey] || [];
-    acc[dateKey].push(order);
+    order.slots.forEach((slot) => {
+      const dateKey = moment(slot.quoteDate, "DD-MM-YYYY").format("YYYY-MM-DD");
+      acc[dateKey] = acc[dateKey] || [];
+      acc[dateKey].push(order);
+    });
     return acc;
   }, {});
 
-  // Create one event per date with the count
   const calendarEvents = Object.entries(ordersCountByDate).map(
     ([date, ordersArr]) => ({
       title: `Orders: ${ordersArr.length}`,
@@ -196,10 +514,18 @@ const Orders = () => {
     })
   );
 
-  // Redirect to the date orders page
   const handleCalendarEventClick = (event) => {
     navigate(`/orders-by-date/${event.date}`);
   };
+
+  const eventStyleGetter = (event) => ({
+    style: {
+      backgroundColor: "#323D4F",
+      color: "white",
+      borderRadius: "4px",
+      border: "none",
+    },
+  });
 
   return (
     <Container className="my-4">
@@ -223,7 +549,9 @@ const Orders = () => {
                     ? "Switch to Calendar View"
                     : "Switch to List View"
                 }
-                onChange={handleViewToggle}
+                onChange={() =>
+                  setViewMode(viewMode === "list" ? "calendar" : "list")
+                }
                 checked={viewMode === "calendar"}
               />
             </div>
@@ -235,7 +563,6 @@ const Orders = () => {
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                     size="sm"
-                    placeholder="From date"
                   />
                 </div>
                 <div className="col-md-3 mb-3 mb-md-0">
@@ -244,21 +571,24 @@ const Orders = () => {
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                     size="sm"
-                    placeholder="To date"
                   />
                 </div>
               </>
             )}
           </div>
-          <div className="col-md-4 mt-3">
-            <Form.Control
-              type="text"
-              placeholder="Search by Company, Executive, Date, Amount, Address"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              size="sm"
-            />
-          </div>
+          {viewMode === "list" && (
+            <div className="d-flex justify-content-between align-items-center py-2">
+              <div className="col-md-4 mt-3">
+                <Form.Control
+                  type="text"
+                  placeholder="Search by Company, Executive, Date, Amount, Address, Status"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  size="sm"
+                />
+              </div>
+            </div>
+          )}
         </Card.Body>
       </Card>
 
@@ -275,40 +605,45 @@ const Orders = () => {
             >
               <thead style={{ backgroundColor: "#f8f9fa" }}>
                 <tr>
-                  <th style={{ width: "15%" }}>Book Date/Time</th>
+                  <th style={{ width: "10%" }}>Booking Date</th>
                   <th style={{ width: "15%" }}>Company Name</th>
                   <th style={{ width: "15%" }}>Executive Name</th>
                   <th style={{ width: "10%" }}>Grand Total</th>
-                  <th style={{ width: "10%" }}>Start Date</th>
+                  <th style={{ width: "10%" }}>Quote Date</th>
                   <th style={{ width: "25%" }}>Address</th>
-                  <th style={{ width: "10%" }} className="text-center">
+                  <th style={{ width: "15%" }} className="text-center">
                     Action
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
-                  <tr key={order.id} style={{ verticalAlign: "middle" }}>
-                    <td>
-                      {moment(order.bookingDate).format("MM/DD/YYYY hh:mm A")}
-                    </td>
-                    <td>{order.companyName}</td>
-                    <td>{order.executiveName}</td>
-                    <td>{order.grandTotal}</td>
-                    <td>{order.startDate}</td>
-                    <td>{order.address}</td>
-                    <td className="text-center">
-                      <Button
-                        variant="outline-dark"
-                        size="sm"
-                        onClick={() => navigate(`/orders-details/${order.id}`)}
-                      >
-                        <MdVisibility />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredOrders.length === 0 && (
+                {paginatedOrders.map((order) => {
+                  const quoteDate =
+                    order.slots.length > 0 ? order.slots[0].quoteDate : "";
+                  return (
+                    <tr key={order.id} style={{ verticalAlign: "middle" }}>
+                      <td>{moment(order.bookingDate).format("DD-MM-YYYY")}</td>
+                      <td>{order.companyName}</td>
+                      <td>{order.executiveName}</td>
+                      <td>{order.grandTotal}</td>
+                      <td>{quoteDate}</td>
+                      <td>{order.address}</td>
+                      <td className="text-center">
+                        <Button
+                          variant="outline-dark"
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/orders-details/${order.id}`)
+                          }
+                          title="View"
+                        >
+                          <MdVisibility />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {paginatedOrders.length === 0 && (
                   <tr>
                     <td colSpan="7" className="text-center text-muted">
                       No orders found.
@@ -318,7 +653,12 @@ const Orders = () => {
               </tbody>
             </Table>
           </div>
-          <Pagination totalItems={filteredOrders.length} />
+          <Pagination
+            totalItems={filteredOrders.length}
+            pageSize={PAGE_SIZE}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+          />
         </Card>
       ) : (
         <Card className="shadow-sm p-3">
@@ -332,6 +672,7 @@ const Orders = () => {
             popup
             selectable
             onSelectEvent={handleCalendarEventClick}
+            eventPropGetter={eventStyleGetter}
           />
         </Card>
       )}
