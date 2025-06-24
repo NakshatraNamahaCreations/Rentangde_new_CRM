@@ -55,6 +55,7 @@ const formatDateToDDMMYYYY = (date) => {
 
 const QuotationDetails = () => {
   const { id } = useParams();
+
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -316,7 +317,7 @@ const QuotationDetails = () => {
               productId: product.productId,
               productName: product.productName,
               quantity: product.quantity || product.qty,
-              total: product.total,
+              total: product.total ,
             })),
           })) || [], // Default to empty array if no slots found
         slots:
@@ -570,7 +571,7 @@ const QuotationDetails = () => {
   const discount = Number(quotation?.discount || 0);
   const transport = Number(quotation?.transportcharge || 0);
   const manpower = Number(quotation?.labourecharge || 0);
-  const roundOff = Number(quotation?.adjustments || quotation?.roundOff || 0);
+  // const roundOff = Number(quotation?.adjustments || quotation?.roundOff || 0);
   const gst = Number(quotation?.GST || 0);
 
   // Add transport and manpower
@@ -648,6 +649,7 @@ const QuotationDetails = () => {
   const handleDelete = async (item) => {
     if (!window.confirm("Delete this product?")) return;
 
+    
     const updatedItems = items.filter((i) => i.productId !== item.productId);
 
     quotation.slots.forEach((slot) => {
@@ -800,7 +802,12 @@ const QuotationDetails = () => {
 
     // === COST SUMMARY ===
     const summary = [
-      ["Discount (%)", `${(discount || 0).toFixed(2)}`],
+      // ["Discount (%)", `${(discount || 0).toFixed(2)}`],
+       ...(discount && discount !== 0
+    ? [
+        ["Discount (%)", `${(discount || 0).toFixed(2)}`],
+      ]
+    : []),
       [
         "Transportation",
         `Rs. ${Number(transportcharge || 0).toLocaleString("en-IN", {
@@ -819,12 +826,12 @@ const QuotationDetails = () => {
           minimumFractionDigits: 2,
         })}`,
       ],
-      [
-        "Round Off",
-        `Rs. ${Number(adjustments || 0).toLocaleString("en-IN", {
-          minimumFractionDigits: 2,
-        })}`,
-      ],
+      // [
+      //   "Round Off",
+      //   `Rs. ${Number(adjustments || 0).toLocaleString("en-IN", {
+      //     minimumFractionDigits: 2,
+      //   })}`,
+      // ],
       ["GST (%)", `${(GST || 0).toFixed(2)}`],
       [
         "Grand Total",
@@ -1033,25 +1040,7 @@ const QuotationDetails = () => {
                     </td>
                     <td style={{ verticalAlign: "middle", width: "25%" }}>
                       <div className="d-flex">
-                        {/* DatePicker for productQuoteDate */}
-                        {/* <DatePicker
-                          selected={
-                            productDates[item.productId]?.productQuoteDate ||
-                            parseDate(quotation?.slots[0]?.quoteDate)
-                          } // Default to initial quoteDate
-                          onChange={(date) =>
-                            handleDateChange(
-                              item.productId,
-                              "productQuoteDate",
-                              date,
-                              item.productSlot || quotation?.slots[0]?.quoteTime
-                            )
-                          }
-                          dateFormat="dd/MM/yyyy"
-                          className="form-control"
-                          minDate={parseDate(quotation?.slots[0]?.quoteDate)} // Ensure date is within range
-                          maxDate={parseDate(quotation?.slots[0]?.endDate)} // Ensure date is within range
-                        /> */}
+                        
                         {editIdx === idx ? (
                           <DatePicker
                             selected={
@@ -1092,28 +1081,7 @@ const QuotationDetails = () => {
                         )}
 
                         <br />
-                        {/* {console.log("quotation quoteDate1: ", productDates[item.productId]?.quoteDate)}
-                        {console.log("quotation quoteDate2: ", item.productId)}
-                        {console.log("quotation quoteDate3: ", productDates)} */}
-                        {/* DatePicker for productEndDate */}
-                        {/* <DatePicker
-                          selected={
-                            productDates[item.productId]?.productEndDate ||
-                            parseDate(quotation?.slots[0]?.endDate)
-                          } // Default to initial endDate
-                          onChange={(date) =>
-                            handleDateChange(
-                              item.productId,
-                              "productEndDate",
-                              date,
-                              item.productSlot || quotation?.slots[0]?.quoteTime
-                            )
-                          }
-                          dateFormat="dd/MM/yyyy"
-                          className="form-control"
-                          minDate={productDates[item.productId]?.productQuoteDate || parseDate(quotation?.slots[0]?.quoteDate)} // Ensure date is within range
-                          maxDate={parseDate(quotation?.slots[0]?.endDate)} // Ensure date is within range
-                        /> */}
+                      
                         {editIdx === idx ? (
                           <DatePicker
                             selected={
@@ -1235,7 +1203,7 @@ const QuotationDetails = () => {
                       ₹{price}
                     </td>
                     <td style={{ padding: "12px", verticalAlign: "middle" }}>
-                      ₹{item.amount}
+                      ₹{item.amount * days}
                       {/* {total.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                       })} */}
@@ -1316,10 +1284,10 @@ const QuotationDetails = () => {
           >
             Cost Summary
           </h5>
-          <div className="d-flex justify-content-between mb-2">
+          {quotation?.discount != 0 && <div className="d-flex justify-content-between mb-2">
             <span>Discount(%):</span>
             <span>{(quotation.discount || 0).toFixed(2)}</span>
-          </div>
+          </div>}
           <div className="d-flex justify-content-between mb-2">
             <span>Transportation:</span>
             <span>₹{(quotation.transportcharge || 0).toFixed(2)}</span>
@@ -1340,12 +1308,12 @@ const QuotationDetails = () => {
                 .toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="d-flex justify-content-between mb-2">
+          {/* <div className="d-flex justify-content-between mb-2">
             <span>Round Off:</span>
             <span>
               ₹{(quotation.adjustments || quotation.roundOff || 0).toFixed(2)}
             </span>
-          </div>
+          </div> */}
           <div className="d-flex justify-content-between mb-2">
             <span>GST(%):</span>
             <span>{(quotation?.GST || 0).toFixed(2)}</span>

@@ -227,7 +227,7 @@ const Client = () => {
               {filteredClients.length === 0 && (
                 <tr>
                   <td colSpan="5" className="text-center">
-                    No Products found.
+                    No Clients found.
                   </td>
                 </tr>
               )}
