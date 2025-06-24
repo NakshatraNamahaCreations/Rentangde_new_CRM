@@ -11,6 +11,9 @@ import {
 import axios from "axios";
 import Select from "react-select"; // Import react-select
 import { ApiURL } from "../../api";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { format } from 'date-fns';
 
 const InventoryProduct = () => {
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -54,8 +57,8 @@ const InventoryProduct = () => {
     try {
       const response = await axios.get(`${ApiURL}/inventory/filter/`, {
         params: {
-          startDate: deliveryDate,
-          endDate: dismantleDate,
+          startDate: format(deliveryDate, 'dd-MM-yyyy'),
+          endDate: format(dismantleDate, 'dd-MM-yyyy'),
           products: selectedProducts.join(","),
         },
       });
@@ -75,11 +78,20 @@ const InventoryProduct = () => {
               <Form.Label style={{ fontSize: "14px" }}>
                 Delivery Date
               </Form.Label>
-              <Form.Control
+              {/* <Form.Control
                 type="date"
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
                 size="sm"
+              /> */}
+              <DatePicker
+                selected={deliveryDate} // Default to initial quoteDate
+                onChange={(date) => {
+                  setDeliveryDate(date);
+                }}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+                placeholderText="DD/MM/YYYY"
               />
             </Form.Group>
           </Col>
@@ -88,11 +100,14 @@ const InventoryProduct = () => {
               <Form.Label style={{ fontSize: "14px" }}>
                 Dismantle Date
               </Form.Label>
-              <Form.Control
-                type="date"
-                value={dismantleDate}
-                onChange={(e) => setDismantleDate(e.target.value)}
-                size="sm"
+              <DatePicker
+                selected={dismantleDate} // Default to initial quoteDate
+                onChange={(date) => {
+                  setDismantleDate(date);
+                }}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+                placeholderText="DD/MM/YYYY"
               />
             </Form.Group>
           </Col>
